@@ -1,0 +1,6 @@
+{
+  "name": "PaBulong!: A Smart Medication Safety Ecosystem",
+  "description": "A modern, responsive Medication Administration Record (MAR) application enforcing medication safety through simulated NFC and barcode scanning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

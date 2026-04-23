@@ -14,7 +14,10 @@ import {
   AlertCircle,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Package,
+  Settings as SettingsIcon,
+  BookOpen
 } from 'lucide-react';
 import { Patient, Nurse, AuditEntry, Medication } from './types';
 import { initialPatients, initialAuditLogs, mockNurses } from './data';
@@ -25,8 +28,11 @@ import Dashboard from './components/Dashboard';
 import Administer from './components/Administer';
 import PatientsMAR from './components/PatientsMAR';
 import AuditLog from './components/AuditLog';
+import Inventory from './components/Inventory';
+import Protocols from './components/Protocols';
+import Settings from './components/Settings';
 
-type Tab = 'Dashboard' | 'Administer' | 'Patients & MAR' | 'Audit Log';
+type Tab = 'Dashboard' | 'Administer' | 'Patients & MAR' | 'Inventory' | 'Protocols' | 'Audit Log' | 'Settings';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<Nurse | null>(null);
@@ -72,6 +78,24 @@ export default function App() {
     }
   };
 
+  const handleScheduleMed = (patientId: string, medication: Omit<Medication, 'id'>) => {
+    const newMedId = `M-${Date.now()}`;
+    setPatients(prev => prev.map(p => {
+      if (p.id === patientId) {
+        return {
+          ...p,
+          medications: [...p.medications, { ...medication, id: newMedId }]
+        };
+      }
+      return p;
+    }));
+    
+    const patient = patients.find(p => p.id === patientId);
+    if (patient) {
+      addLog(patient.name, medication.name, 'Scheduled new medication', 'info');
+    }
+  };
+
   const clearLogs = () => {
     setAuditLogs([]);
     addLog('System', 'N/A', 'Audit Log Cleared', 'info');
@@ -90,7 +114,16 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative selection:bg-primary/20">
+      {/* Background Pill Silhouette */}
+      <div className="fixed inset-0 z-[-1] pointer-events-none opacity-[0.03] flex items-center justify-center overflow-hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#00BFA5" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round" className="w-[150vw] h-[150vh] -rotate-12">
+           <path d="M10.5 20.5 4 14l10-10 6.5 6.5-10 10Z"/>
+           <path d="m10.5 20.5-6.5-6.5"/>
+           <path d="m14 4 6.5 6.5"/>
+        </svg>
+      </div>
+
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex sidebar w-64">
         <div className="flex flex-col">
@@ -123,12 +156,40 @@ export default function App() {
             label="Patients" 
           />
           <SidebarButton 
+            active={activeTab === 'Inventory'} 
+            onClick={() => setActiveTab('Inventory')} 
+            icon={<Package size={20} />} 
+            label="Inventory" 
+          />
+          <SidebarButton 
             active={activeTab === 'Audit Log'} 
             onClick={() => setActiveTab('Audit Log')} 
             icon={<History size={20} />} 
             label="Audit Log" 
           />
+          <SidebarButton 
+            active={activeTab === 'Settings'} 
+            onClick={() => setActiveTab('Settings')} 
+            icon={<SettingsIcon size={20} />} 
+            label="Settings" 
+          />
         </nav>
+
+        <div className="px-4 mt-6">
+           <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+              <div className="flex items-center gap-3 text-primary mb-2">
+                 <BookOpen size={16} />
+                 <p className="text-xs font-bold uppercase tracking-widest">Protocols</p>
+              </div>
+              <p className="text-[10px] text-slate-light mb-3">Quick access to drug interactions and emergency guidelines.</p>
+              <button 
+                onClick={() => setActiveTab('Protocols')}
+                className="text-[10px] font-black bg-white text-primary px-3 py-1.5 rounded-lg border border-primary/20 w-full hover:bg-primary hover:text-white transition-colors"
+              >
+                View Library
+              </button>
+           </div>
+        </div>
 
         <div className="mt-auto pt-6 border-t border-white/50 space-y-4">
           <div className="flex items-center gap-3 px-2">
@@ -152,7 +213,7 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Global Toolbar */}
-        <header className="h-16 flex items-center justify-between px-8 bg-white/50 backdrop-blur-sm border-b border-white sticky top-0 z-40">
+        <header className="h-16 flex items-center justify-between px-8 bg-white/50 backdrop-blur-md border-b border-white sticky top-0 z-40 relative">
            <div className="flex items-center gap-4 flex-1">
              <button className="md:hidden p-2 text-slate-dark" onClick={() => setIsMenuOpen(!isMenuOpen)}>
                <Menu size={20} />
@@ -163,9 +224,28 @@ export default function App() {
              </div>
            </div>
            
-           <div className="flex items-center gap-4">
-              <div className="bg-amber-500/10 text-amber-600 text-[10px] px-3 py-1.5 rounded-full font-bold uppercase tracking-tighter flex items-center gap-2">
+           <div className="flex items-center gap-6">
+              <div className="hidden lg:flex bg-amber-500/10 text-amber-600 text-[10px] px-3 py-1.5 rounded-full font-bold uppercase tracking-tighter items-center gap-2">
                 <AlertCircle size={12} /> Simulation Active
+              </div>
+              <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
+              
+              {/* User Profiler in Global Header */}
+              <div className="flex items-center gap-3">
+                 <div className="flex flex-col items-end hidden sm:flex">
+                    <span className="text-xs font-black text-slate-dark tracking-tight">{currentUser.name}</span>
+                    <span className="text-[9px] font-bold text-primary uppercase tracking-widest">{currentUser.role}</span>
+                 </div>
+                 <div className="w-9 h-9 bg-primary/10 border border-primary/20 rounded-full flex items-center justify-center text-primary font-black shadow-inner">
+                    {currentUser.name.charAt(0)}
+                 </div>
+                 <button 
+                   onClick={() => setCurrentUser(null)}
+                   className="ml-2 w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                   title="Logout"
+                 >
+                   <LogOut size={16} />
+                 </button>
               </div>
            </div>
         </header>
@@ -193,7 +273,10 @@ export default function App() {
                    <SidebarButton active={activeTab === 'Dashboard'} onClick={() => { setActiveTab('Dashboard'); setIsMenuOpen(false); }} icon={<LayoutDashboard size={20} />} label="Overview" />
                    <SidebarButton active={activeTab === 'Administer'} onClick={() => { setActiveTab('Administer'); setIsMenuOpen(false); }} icon={<Activity size={20} />} label="Administer" />
                    <SidebarButton active={activeTab === 'Patients & MAR'} onClick={() => { setActiveTab('Patients & MAR'); setIsMenuOpen(false); }} icon={<ClipboardList size={20} />} label="Patients" />
+                   <SidebarButton active={activeTab === 'Inventory'} onClick={() => { setActiveTab('Inventory'); setIsMenuOpen(false); }} icon={<Package size={20} />} label="Inventory" />
+                   <SidebarButton active={activeTab === 'Protocols'} onClick={() => { setActiveTab('Protocols'); setIsMenuOpen(false); }} icon={<BookOpen size={20} />} label="Protocols" />
                    <SidebarButton active={activeTab === 'Audit Log'} onClick={() => { setActiveTab('Audit Log'); setIsMenuOpen(false); }} icon={<History size={20} />} label="Audit Log" />
+                   <SidebarButton active={activeTab === 'Settings'} onClick={() => { setActiveTab('Settings'); setIsMenuOpen(false); }} icon={<SettingsIcon size={20} />} label="Settings" />
                 </nav>
               </div>
               <div className="flex-1 bg-black/20 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)} />
@@ -216,6 +299,8 @@ export default function App() {
                   nurse={currentUser} 
                   patients={patients} 
                   onAdminister={startAdministration}
+                  onNavigateToPatients={() => setActiveTab('Patients & MAR')}
+                  onNavigateToTasks={() => setActiveTab('Patients & MAR')} // Simplified navigation destination
                 />
               )}
               {activeTab === 'Administer' && (
@@ -237,12 +322,25 @@ export default function App() {
                 <PatientsMAR 
                   patients={patients} 
                   onAdminister={startAdministration}
+                  onScheduleMed={handleScheduleMed}
                 />
+              )}
+              {activeTab === 'Inventory' && (
+                <Inventory />
+              )}
+              {activeTab === 'Protocols' && (
+                <Protocols />
               )}
               {activeTab === 'Audit Log' && (
                 <AuditLog 
                   logs={auditLogs} 
                   onClear={clearLogs} 
+                />
+              )}
+              {activeTab === 'Settings' && (
+                <Settings 
+                  currentUser={currentUser} 
+                  onUpdateUser={setCurrentUser} 
                 />
               )}
             </motion.div>

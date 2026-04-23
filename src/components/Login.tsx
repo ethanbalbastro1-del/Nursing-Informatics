@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Stethoscope, Wifi, ChevronLeft, UserCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Stethoscope, Wifi, ChevronLeft, UserCircle2, ArrowRight, Fingerprint, ScanFace, KeyRound } from 'lucide-react';
 import { Nurse } from '../types';
 import { mockNurses } from '../data';
 
@@ -10,7 +10,12 @@ interface LoginProps {
 
 export default function Login({ onLogin }: LoginProps) {
   const [showNFC, setShowNFC] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // State for manual override password
+  const [selectedNurse, setSelectedNurse] = useState<Nurse | null>(null);
+  const [password, setPassword] = useState('');
+  const [showOverrideList, setShowOverrideList] = useState(false);
 
   const simulateNFCLogin = () => {
     setIsProcessing(true);
@@ -20,77 +25,199 @@ export default function Login({ onLogin }: LoginProps) {
     }, 1500);
   };
 
-  const [isProcessing, setIsProcessing] = useState(false);
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedNurse && password) {
+      setIsProcessing(true);
+      setTimeout(() => {
+        onLogin(selectedNurse);
+        setIsProcessing(false);
+      }, 800);
+    }
+  };
+
+  const handleBiometricAuth = () => {
+    if (selectedNurse) {
+      setIsProcessing(true);
+      setTimeout(() => {
+        onLogin(selectedNurse);
+        setIsProcessing(false);
+      }, 1000);
+    }
+  };
 
   if (showNFC) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card max-w-md w-full p-10 text-center relative overflow-hidden"
-        >
-          <button 
-            onClick={() => setShowNFC(false)}
-            className="absolute top-6 left-6 text-slate-light hover:text-primary transition-colors flex items-center gap-1 text-xs font-bold uppercase tracking-widest"
-          >
-            <ChevronLeft size={16} /> Back
-          </button>
+     return (
+       <div className="min-h-screen flex items-center justify-center p-6 bg-transparent">
+         <AnimatePresence mode="wait">
+           {!selectedNurse ? (
+             <motion.div 
+               key="nfc-scan"
+               initial={{ opacity: 0, y: 20 }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.95 }}
+               className="glass-card max-w-md w-full p-10 text-center relative overflow-hidden"
+             >
+               <button 
+                 onClick={() => setShowNFC(false)}
+                 className="absolute top-6 left-6 text-slate-light hover:text-primary transition-colors flex items-center gap-1 text-xs font-bold uppercase tracking-widest z-10"
+               >
+                 <ChevronLeft size={16} /> Back
+               </button>
 
-          <div className="flex flex-col items-center mb-10 mt-4">
-            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-6">
-              <Stethoscope size={32} />
-            </div>
-            <h2 className="text-2xl font-black text-slate-dark tracking-tight mb-2">Nurse Verification</h2>
-            <p className="text-sm text-slate-light font-medium max-w-[240px]">
-              Secure login using NFC ID card. Please tap your staff badge.
-            </p>
-          </div>
+               <div className="flex flex-col items-center mb-8 mt-4">
+                 <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-6">
+                   <Stethoscope size={32} />
+                 </div>
+                 <h2 className="text-2xl font-black text-slate-dark tracking-tight mb-2">Network Verification</h2>
+                 <p className="text-sm text-slate-light font-medium max-w-[240px]">
+                   Awaiting badge scan. Please present your NFC credentials.
+                 </p>
+               </div>
 
-          <div className="ripple-container h-64 mb-10">
-            <div className="ripple-circle w-32 h-32" />
-            <div className="ripple-circle w-48 h-48 [animation-delay:0.5s]" />
-            <div className="ripple-circle w-64 h-64 [animation-delay:1s]" />
-            
-            <button 
-              onClick={simulateNFCLogin}
-              disabled={isProcessing}
-              className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-2xl shadow-primary/30 ${
-                isProcessing ? 'bg-secondary' : 'bg-primary'
-              }`}
-            >
-              {isProcessing ? (
-                <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent" />
-              ) : (
-                <Wifi size={40} className="text-white" />
-              )}
-            </button>
-          </div>
+               <div className="ripple-container h-48 mb-8">
+                 <div className="ripple-circle w-32 h-32" />
+                 <div className="ripple-circle w-48 h-48 [animation-delay:0.5s]" />
+                 <button 
+                   onClick={simulateNFCLogin}
+                   disabled={isProcessing}
+                   className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-2xl shadow-primary/30 ${
+                     isProcessing ? 'bg-secondary' : 'bg-primary'
+                   }`}
+                 >
+                   {isProcessing ? (
+                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent" />
+                   ) : (
+                     <Wifi size={40} className="text-white" />
+                   )}
+                 </button>
+               </div>
 
-          <div className="space-y-4">
-             <p className="text-[10px] text-slate-light font-bold uppercase tracking-[0.2em] mb-4">Or use manual override</p>
-             <div className="grid grid-cols-1 gap-2">
-                {mockNurses.map(nurse => (
+               <div className="pt-8 border-t border-slate-100">
+                  <AnimatePresence mode="wait">
+                     {!showOverrideList ? (
+                       <motion.button 
+                         key="override-btn"
+                         initial={{ opacity: 0 }}
+                         animate={{ opacity: 1 }}
+                         exit={{ opacity: 0 }}
+                         onClick={() => setShowOverrideList(true)}
+                         className="flex items-center justify-center gap-2 mx-auto text-xs font-bold text-slate-light uppercase tracking-widest hover:text-primary transition-colors"
+                       >
+                         <KeyRound size={16} /> Manual Override
+                       </motion.button>
+                     ) : (
+                       <motion.div 
+                         key="override-list"
+                         initial={{ opacity: 0, height: 0 }}
+                         animate={{ opacity: 1, height: 'auto' }}
+                         exit={{ opacity: 0, height: 0 }}
+                         className="space-y-4"
+                       >
+                          <p className="text-[10px] text-slate-light font-bold uppercase tracking-[0.2em] mb-4">Select User Profile</p>
+                          <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-2">
+                             {mockNurses.map(nurse => (
+                               <button 
+                                 key={nurse.id}
+                                 onClick={() => setSelectedNurse(nurse)}
+                                 className="w-full flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-white hover:border-primary hover:shadow-lg hover:shadow-primary/5 transition-all text-left group"
+                               >
+                                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary border border-slate-100 group-hover:border-primary transition-colors font-black">
+                                     {nurse.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                     <p className="text-sm font-bold text-slate-dark">{nurse.name}</p>
+                                     <p className="text-[9px] text-slate-light font-bold uppercase tracking-tighter">{nurse.role}</p>
+                                  </div>
+                               </button>
+                             ))}
+                          </div>
+                          <button 
+                            onClick={() => setShowOverrideList(false)}
+                            className="text-[10px] font-bold text-slate-400 uppercase hover:text-slate-dark"
+                          >
+                            Cancel Override
+                          </button>
+                       </motion.div>
+                     )}
+                  </AnimatePresence>
+               </div>
+             </motion.div>
+           ) : (
+             <motion.div
+               key="password-screen"
+               initial={{ opacity: 0, scale: 0.95 }}
+               animate={{ opacity: 1, scale: 1 }}
+               exit={{ opacity: 0, scale: 0.95 }}
+               className="glass-card max-w-sm w-full p-10 text-center relative overflow-hidden flex flex-col justify-between"
+             >
+               <button 
+                 onClick={() => {
+                   setSelectedNurse(null);
+                   setPassword('');
+                 }}
+                 className="absolute top-6 left-6 text-slate-light hover:text-primary transition-colors flex items-center gap-1 text-xs font-bold uppercase tracking-widest z-10"
+               >
+                 <ChevronLeft size={16} /> Back
+               </button>
+
+               <div className="flex flex-col items-center mb-8 mt-4">
+                 <div className="w-20 h-20 bg-primary/5 border border-primary/20 rounded-full flex items-center justify-center text-primary mb-4 shadow-inner">
+                    <span className="text-3xl font-black">{selectedNurse.name.charAt(0)}</span>
+                 </div>
+                 <h2 className="text-2xl font-black text-slate-dark tracking-tight mb-1">{selectedNurse.name}</h2>
+                 <p className="text-[10px] text-slate-light font-bold uppercase tracking-widest">{selectedNurse.role}</p>
+               </div>
+
+               <form onSubmit={handlePasswordSubmit} className="space-y-6">
+                  <div>
+                    <input 
+                      type="password" 
+                      placeholder="ENTER PIN" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-primary focus:bg-white rounded-2xl px-6 py-4 text-center text-lg font-black tracking-[0.5em] outline-none transition-all placeholder:text-slate-300 placeholder:tracking-widest placeholder:text-sm"
+                      autoFocus
+                    />
+                  </div>
                   <button 
-                    key={nurse.id}
-                    onClick={() => onLogin(nurse)}
-                    className="w-full flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-white hover:border-primary transition-all text-left group"
+                    type="submit"
+                    disabled={isProcessing || !password}
+                    className="btn-primary w-full disabled:opacity-50 disabled:grayscale transition-all py-4 flex items-center justify-center gap-2"
                   >
-                     <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary border border-slate-100 group-hover:border-primary transition-colors">
-                        <UserCircle2 size={20} />
-                     </div>
-                     <div>
-                        <p className="text-sm font-bold text-slate-dark">{nurse.name}</p>
-                        <p className="text-[9px] text-slate-light font-bold uppercase tracking-tighter">{nurse.role}</p>
-                     </div>
+                    {isProcessing ? (
+                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                    ) : (
+                     <>Authenticate <ArrowRight size={18} /></>
+                    )}
                   </button>
-                ))}
-             </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
+               </form>
+
+               <div className="mt-8 pt-8 border-t border-slate-100">
+                 <p className="text-[10px] text-slate-light font-bold uppercase tracking-[0.2em] mb-4">Biometric Login</p>
+                 <div className="flex justify-center gap-4">
+                    <button 
+                      onClick={handleBiometricAuth}
+                      disabled={isProcessing}
+                      className="w-14 h-14 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-primary hover:bg-primary/5 hover:border-primary transition-all disabled:opacity-50"
+                    >
+                       <ScanFace size={24} />
+                    </button>
+                    <button 
+                      onClick={handleBiometricAuth}
+                      disabled={isProcessing}
+                      className="w-14 h-14 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-primary hover:bg-primary/5 hover:border-primary transition-all disabled:opacity-50"
+                    >
+                       <Fingerprint size={24} />
+                    </button>
+                 </div>
+               </div>
+             </motion.div>
+           )}
+         </AnimatePresence>
+       </div>
+     );
+   }
 
   return (
     <div className="min-h-screen flex flex-col">

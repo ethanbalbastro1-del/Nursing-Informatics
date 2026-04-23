@@ -1,5 +1,23 @@
 import { Patient, Nurse, AuditEntry } from './types';
 
+export interface MedInventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  stock: number;
+  threshold: number;
+}
+
+export const mockInventory: MedInventoryItem[] = [
+  { id: 'INV-100', name: 'Amoxicillin 500mg', category: 'Antibiotic', stock: 1450, threshold: 500 },
+  { id: 'INV-101', name: 'Lisinopril 10mg', category: 'Antihypertensive', stock: 820, threshold: 300 },
+  { id: 'INV-102', name: 'Metformin 500mg', category: 'Antidiabetic', stock: 120, threshold: 400 },
+  { id: 'INV-103', name: 'Epinephrine 1mg', category: 'Emergency', stock: 12, threshold: 20 },
+  { id: 'INV-104', name: 'Atorvastatin 20mg', category: 'Statin', stock: 650, threshold: 200 },
+  { id: 'INV-105', name: 'Albuterol Sulfate', category: 'Bronchodilator', stock: 45, threshold: 50 },
+  { id: 'INV-106', name: 'Ibuprofen 400mg', category: 'NSAID', stock: 2400, threshold: 1000 },
+];
+
 export const mockNurses: Nurse[] = [
   { id: 'N1', name: 'Nurse Joy', nfcId: 'S-JOY-123', role: 'Head Nurse' },
   { id: 'N2', name: 'Nurse Florence', nfcId: 'S-FLO-456', role: 'Staff Nurse' },

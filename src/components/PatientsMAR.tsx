@@ -11,13 +11,17 @@ import {
   Clock,
   ExternalLink,
   ChevronRight,
-  ClipboardList
+  ClipboardList,
+  Plus,
+  X
 } from 'lucide-react';
 import { Patient, Medication } from '../types';
+import { mockInventory } from '../data';
 
 interface PatientsMARProps {
   patients: Patient[];
   onAdminister: (patientId: string, medId: string) => void;
+  onScheduleMed?: (patientId: string, medication: Omit<Medication, 'id'>) => void;
 }
 
 interface PatientCardProps {
@@ -26,17 +30,26 @@ interface PatientCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   onAdminister: (medId: string) => void;
+  onScheduleClick: () => void;
 }
 
-export default function PatientsMAR({ patients, onAdminister }: PatientsMARProps) {
+export default function PatientsMAR({ patients, onAdminister, onScheduleMed }: PatientsMARProps) {
   const [expandedPatient, setExpandedPatient] = useState<string | null>(patients[0]?.id || null);
+  const [schedulingPatientId, setSchedulingPatientId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedPatient(expandedPatient === id ? null : id);
   };
 
+  const handleScheduleSubmit = (medication: Omit<Medication, 'id'>) => {
+    if (schedulingPatientId && onScheduleMed) {
+      onScheduleMed(schedulingPatientId, medication);
+    }
+    setSchedulingPatientId(null);
+  };
+
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 relative">
       <header>
          <h2 className="text-4xl font-black text-slate-dark tracking-tight">Patients & MAR</h2>
          <p className="text-sm text-slate-light font-bold uppercase tracking-widest mt-1">Detailed Medication Records</p>
@@ -50,10 +63,147 @@ export default function PatientsMAR({ patients, onAdminister }: PatientsMARProps
             isExpanded={expandedPatient === patient.id}
             onToggle={() => toggleExpand(patient.id)}
             onAdminister={(medId) => onAdminister(patient.id, medId)}
+            onScheduleClick={() => setSchedulingPatientId(patient.id)}
           />
         ))}
       </div>
+
+      <AnimatePresence>
+        {schedulingPatientId && (
+          <ScheduleModal 
+             patient={patients.find(p => p.id === schedulingPatientId)!}
+             onClose={() => setSchedulingPatientId(null)}
+             onSubmit={handleScheduleSubmit}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function ScheduleModal({ patient, onClose, onSubmit }: { patient: Patient, onClose: () => void, onSubmit: (med: Omit<Medication, 'id'>) => void }) {
+  const [selectedDrugId, setSelectedDrugId] = useState(mockInventory[0].id);
+  const [dose, setDose] = useState('500mg');
+  const [route, setRoute] = useState('Oral');
+  const [frequency, setFrequency] = useState('Once Daily');
+  const [time, setTime] = useState('08:00');
+
+  const selectedDrug = mockInventory.find(d => d.id === selectedDrugId);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDrug) return;
+    
+    onSubmit({
+      name: selectedDrug.name,
+      dose,
+      route,
+      barcode: `BC-${Date.now()}`,
+      nfcTag: `NFC-${Date.now()}`,
+      time,
+      frequency,
+      status: 'Scheduled',
+    });
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        transition={{ type: "spring", stiffness: 350, damping: 30 }}
+        className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bg-slate-50 relative border-b border-slate-100 p-6">
+           <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-dark transition-colors">
+              <X size={24} />
+           </button>
+           <h3 className="text-xl font-black text-slate-dark tracking-tight mb-1">Schedule Medication</h3>
+           <p className="text-xs text-slate-light font-bold uppercase tracking-widest">{patient.name}</p>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+           <div>
+              <label className="block text-[10px] font-black text-slate-light uppercase tracking-widest mb-2">Medication (from Inventory)</label>
+              <select 
+                value={selectedDrugId} 
+                onChange={e => setSelectedDrugId(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 focus:border-primary focus:bg-white rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all"
+              >
+                {mockInventory.map(item => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+           </div>
+           <div className="grid grid-cols-2 gap-4">
+               <div>
+                  <label className="block text-[10px] font-black text-slate-light uppercase tracking-widest mb-2">Dose</label>
+                  <input 
+                    type="text" 
+                    value={dose} 
+                    onChange={e => setDose(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 focus:border-primary focus:bg-white rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all"
+                    required
+                  />
+               </div>
+               <div>
+                  <label className="block text-[10px] font-black text-slate-light uppercase tracking-widest mb-2">Route</label>
+                  <select 
+                    value={route} 
+                    onChange={e => setRoute(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 focus:border-primary focus:bg-white rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all"
+                  >
+                    <option>Oral</option>
+                    <option>IV</option>
+                    <option>Inhalation</option>
+                    <option>IM</option>
+                    <option>Subcutaneous</option>
+                  </select>
+               </div>
+           </div>
+           <div className="grid grid-cols-2 gap-4">
+               <div>
+                  <label className="block text-[10px] font-black text-slate-light uppercase tracking-widest mb-2">Frequency</label>
+                  <select 
+                    value={frequency} 
+                    onChange={e => setFrequency(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 focus:border-primary focus:bg-white rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all"
+                  >
+                    <option>Once Daily</option>
+                    <option>Twice Daily</option>
+                    <option>Every 4 hours PRN</option>
+                    <option>Every 6 hours</option>
+                    <option>Every 12 hours</option>
+                  </select>
+               </div>
+               <div>
+                  <label className="block text-[10px] font-black text-slate-light uppercase tracking-widest mb-2">Time to Administer</label>
+                  <input 
+                    type="time" 
+                    value={time} 
+                    onChange={e => setTime(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 focus:border-primary focus:bg-white rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all"
+                    required
+                  />
+               </div>
+           </div>
+           
+           <div className="pt-4">
+             <button type="submit" className="w-full btn-primary py-4 font-black tracking-widest uppercase text-sm">
+               Add to Schedule
+             </button>
+           </div>
+        </form>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -61,7 +211,8 @@ function PatientCard({
   patient, 
   isExpanded, 
   onToggle, 
-  onAdminister 
+  onAdminister,
+  onScheduleClick
 }: PatientCardProps) {
   return (
     <motion.div 
@@ -118,16 +269,24 @@ function PatientCard({
             className="overflow-hidden"
           >
             <div className="px-8 pb-10 pt-4 overflow-x-auto">
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-light">
                       <ClipboardList size={18} />
                    </div>
                    <h5 className="text-sm font-black text-slate-dark uppercase tracking-widest">Medication Administration Record</h5>
                 </div>
-                <button className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 hover:underline">
-                  Sign Full MAR <ExternalLink size={12} />
-                </button>
+                <div className="flex items-center gap-4">
+                   <button 
+                     onClick={onScheduleClick}
+                     className="text-[10px] bg-primary/10 font-black text-primary px-3 py-2 rounded-lg uppercase tracking-widest flex items-center gap-1 hover:bg-primary hover:text-white transition-colors"
+                   >
+                     <Plus size={14} /> Schedule Med
+                   </button>
+                   <button className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 hover:text-primary transition-colors">
+                     Sign Full MAR <ExternalLink size={12} />
+                   </button>
+                </div>
               </div>
               <table className="w-full text-left border-separate border-spacing-y-2">
                 <thead>

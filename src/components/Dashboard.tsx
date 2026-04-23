@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, 
   CheckCircle2, 
@@ -11,7 +11,8 @@ import {
   Bed,
   CheckCircle,
   ChevronRight,
-  Quote
+  Quote,
+  Check
 } from 'lucide-react';
 import { Patient, Nurse } from '../types';
 
@@ -19,9 +20,29 @@ interface DashboardProps {
   nurse: Nurse;
   patients: Patient[];
   onAdminister: (patientId: string, medId: string) => void;
+  onNavigateToPatients: () => void;
+  onNavigateToTasks: () => void;
 }
 
-export default function Dashboard({ nurse, patients, onAdminister }: DashboardProps) {
+export default function Dashboard({ nurse, patients, onAdminister, onNavigateToPatients, onNavigateToTasks }: DashboardProps) {
+  const [tasks, setTasks] = useState([
+    { id: 't1', label: "Change dressing for Room 302", time: "Due by 10:30 AM", checked: false },
+    { id: 't2', label: "Collect CBC draw for Room 308", time: "Fasting required. Due by 11:00 AM", checked: false },
+    { id: 't3', label: "08:00 AM Vitals Round", time: "Completed at 08:15 AM", checked: true },
+  ]);
+
+  const [alerts, setAlerts] = useState([
+    { id: 'a1', title: "STAT Med", time: "2 mins ago", desc: "Room 304 - Doe, John. Epinephrine 1mg IV Push scheduled for 09:30 AM.", type: 'stat' as const },
+    { id: 'a2', title: "Monitor Alarm", time: "10 mins ago", desc: "Room 312 - Smith, Sarah. Sustained tachycardia > 120bpm.", type: 'warn' as const },
+  ]);
+
+  const toggleTask = (id: string) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, checked: !t.checked } : t));
+  };
+
+  const dismissAlert = (id: string) => {
+    setAlerts(prev => prev.filter(a => a.id !== id));
+  };
   const stats = [
     { label: 'My Patients', value: patients.length, icon: <Bed />, color: 'primary' },
     { 
@@ -78,18 +99,23 @@ export default function Dashboard({ nurse, patients, onAdminister }: DashboardPr
                <AlertCircle size={20} className="text-red-500" /> Urgent Alerts
             </h3>
             <div className="space-y-4">
-              <AlertItem 
-                title="STAT Med" 
-                time="2 mins ago" 
-                desc="Room 304 - Doe, John. Epinephrine 1mg IV Push scheduled for 09:30 AM." 
-                type="stat"
-              />
-              <AlertItem 
-                title="Monitor Alarm" 
-                time="10 mins ago" 
-                desc="Room 312 - Smith, Sarah. Sustained tachycardia > 120bpm." 
-                type="warn"
-              />
+              <AnimatePresence>
+                {alerts.length === 0 ? (
+                  <motion.p initial={{opacity:0}} animate={{opacity:1}} className="text-sm font-bold text-slate-light italic">No active alerts.</motion.p>
+                ) : (
+                  alerts.map(alert => (
+                    <motion.div key={alert.id} layout initial={{opacity:0, scale:0.9}} animate={{opacity:1, scale:1}} exit={{opacity:0, scale:0.9}}>
+                      <AlertItem 
+                        title={alert.title} 
+                        time={alert.time} 
+                        desc={alert.desc} 
+                        type={alert.type}
+                        onDismiss={() => dismissAlert(alert.id)}
+                      />
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
             </div>
           </section>
 
@@ -110,7 +136,12 @@ export default function Dashboard({ nurse, patients, onAdminister }: DashboardPr
           <section className="glass-card overflow-hidden">
             <div className="p-8 pb-4 flex items-center justify-between">
               <h3 className="text-xl font-bold text-slate-dark tracking-tight">Patient List</h3>
-              <button className="text-xs font-bold text-primary hover:underline uppercase tracking-widest">View All</button>
+              <button 
+                onClick={onNavigateToPatients}
+                className="text-xs font-bold text-primary hover:underline uppercase tracking-widest"
+              >
+                View All
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -126,7 +157,11 @@ export default function Dashboard({ nurse, patients, onAdminister }: DashboardPr
                   {patients.map((patient) => {
                     const nextMed = patient.medications.find(m => m.status !== 'Administered') || patient.medications[0];
                     return (
-                      <tr key={patient.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <tr 
+                        key={patient.id} 
+                        className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                        onClick={onNavigateToPatients}
+                      >
                         <td className="px-8 py-6">
                            <div className="flex items-center gap-4">
                               <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary text-[10px] font-black uppercase">
@@ -153,7 +188,10 @@ export default function Dashboard({ nurse, patients, onAdminister }: DashboardPr
                         <td className="px-8 py-6 text-right">
                           {nextMed.status !== 'Administered' ? (
                             <button 
-                              onClick={() => onAdminister(patient.id, nextMed.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAdminister(patient.id, nextMed.id);
+                              }}
                               className="text-primary hover:scale-110 transition-transform inline-block"
                             >
                                <ChevronRight size={24} />
@@ -171,11 +209,20 @@ export default function Dashboard({ nurse, patients, onAdminister }: DashboardPr
           </section>
 
           <section className="glass-card p-8">
-             <h3 className="text-xl font-bold text-slate-dark tracking-tight mb-8">Upcoming Tasks</h3>
-             <div className="space-y-6">
-                <TaskItem checked={false} label="Change dressing for Room 302" time="Due by 10:30 AM" />
-                <TaskItem checked={false} label="Collect CBC draw for Room 308" time="Fasting required. Due by 11:00 AM" />
-                <TaskItem checked={true} label="08:00 AM Vitals Round" time="Completed at 08:15 AM" />
+             <div className="flex items-center justify-between mb-8">
+               <h3 className="text-xl font-bold text-slate-dark tracking-tight">Upcoming Tasks</h3>
+               <button onClick={onNavigateToTasks} className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">View Schedule</button>
+             </div>
+             <div className="space-y-4">
+                {tasks.map(task => (
+                  <TaskItem 
+                    key={task.id} 
+                    checked={task.checked} 
+                    label={task.label} 
+                    time={task.time} 
+                    onClick={() => toggleTask(task.id)}
+                  />
+                ))}
              </div>
           </section>
         </div>
@@ -184,29 +231,32 @@ export default function Dashboard({ nurse, patients, onAdminister }: DashboardPr
   );
 }
 
-function AlertItem({ title, time, desc, type }: { title: string, time: string, desc: string, type: 'stat' | 'warn' }) {
+function AlertItem({ title, time, desc, type, onDismiss }: { title: string, time: string, desc: string, type: 'stat' | 'warn', onDismiss: () => void }) {
   return (
-    <div className={`p-4 rounded-2xl border-l-[3px] shadow-sm ${type === 'stat' ? 'bg-red-50/50 border-red-500' : 'bg-white border-primary'}`}>
-       <div className="flex items-center justify-between mb-2">
+    <div className={`p-4 rounded-2xl border-l-[3px] shadow-sm relative group ${type === 'stat' ? 'bg-red-50/50 border-red-500' : 'bg-white border-primary'}`}>
+       <button onClick={onDismiss} className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-dark opacity-0 group-hover:opacity-100 transition-opacity">
+         <Check size={16} />
+       </button>
+       <div className="flex items-center justify-between mb-2 pr-6">
           <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${type === 'stat' ? 'bg-red-100 text-red-600' : 'bg-primary/10 text-primary'}`}>{title}</span>
           <span className="text-[10px] text-slate-light font-bold">{time}</span>
        </div>
        <p className="text-xs font-bold text-slate-dark mb-1 leading-tight">{desc.split('.')[0]}.</p>
-       <p className="text-[10px] text-slate-light leading-snug">{desc.split('.')[1]}</p>
+       <p className="text-[10px] text-slate-light leading-snug">{desc.split('.').slice(1).join('.')}</p>
     </div>
   );
 }
 
-function TaskItem({ checked, label, time }: { checked: boolean, label: string, time: string }) {
+function TaskItem({ checked, label, time, onClick }: { checked: boolean, label: string, time: string, onClick: () => void }) {
    return (
-      <div className={`flex items-start gap-4 p-4 rounded-2xl transition-all ${checked ? 'opacity-50' : 'hover:bg-slate-50'}`}>
+      <button onClick={onClick} className={`w-full text-left flex items-start gap-4 p-4 rounded-2xl transition-all cursor-pointer ${checked ? 'opacity-50' : 'hover:bg-slate-50'}`}>
          <div className={`w-6 h-6 rounded-md border-2 mt-0.5 flex items-center justify-center transition-all ${checked ? 'bg-primary border-primary text-white' : 'border-slate-200 bg-white'}`}>
-            {checked && <CheckCircle2 size={14} />}
+            {checked && <Check size={14} strokeWidth={4} />}
          </div>
          <div>
             <p className={`text-sm font-bold ${checked ? 'line-through text-slate-light' : 'text-slate-dark'}`}>{label}</p>
-            <p className="text-xs text-slate-light font-medium">{time}</p>
+            <p className="text-xs text-slate-light font-medium mt-1">{time}</p>
          </div>
-      </div>
+      </button>
    );
 }
